@@ -36,7 +36,7 @@ jobs:
   check-description:
     runs-on: ubuntu-latest
     steps:
-      - uses: codex-team/action-pr-checks@v1
+      - uses: codex-team/action-pr-assistant@master
         with:
           check: description
           mode: strict
@@ -60,7 +60,7 @@ jobs:
   check-linked-issue:
     runs-on: ubuntu-latest
     steps:
-      - uses: codex-team/action-pr-checks@v1
+      - uses: codex-team/action-pr-assistant@master
         with:
           check: linked-issue
           mode: comment
@@ -84,7 +84,7 @@ jobs:
   pr-hygiene:
     runs-on: ubuntu-latest
     steps:
-      - uses: codex-team/action-pr-checks@v1
+      - uses: codex-team/action-pr-assistant@master
         with:
           check: both
           mode: comment
