@@ -1,0 +1,348 @@
+name: 'CodeX: PR Checks'
+description: 'Checks pull request description and linked issues'
+author: 'CodeX Team'
+
+inputs:
+  check:
+    description: 'Which check to run: description, linked-issue or both'
+    required: false
+    default: 'description'
+  mode:
+    description: 'Modes: strict, draft or comment'
+    required: false
+    default: 'comment'
+  token:
+    description: 'Optional token with extended permissions. If empty, GITHUB_TOKEN is used.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check PR description
+      if: inputs.check == 'description' || inputs.check == 'both'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token != '' && inputs.token || github.token }}
+        script: |
+          const pr = context.payload.pull_request;
+          if (!pr) {
+            core.setFailed('This action must be run on a pull_request event.');
+            return;
+          }
+
+          const mode = ('${{ inputs.mode }}' || 'comment').trim().toLowerCase();
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const prNumber = pr.number;
+
+          async function addComment(body) {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+          }
+
+          async function closePr() {
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: prNumber,
+              state: 'closed',
+            });
+          }
+
+          async function safeGraphql(actionName, query, variables) {
+            try {
+              await github.graphql(query, variables);
+            } catch (error) {
+              core.warning(actionName + ' failed: ' + error.message);
+            }
+          }
+
+          async function convertToDraft() {
+            await safeGraphql(
+              'convertToDraft',
+              `
+                mutation ConvertToDraft($id: ID!) {
+                  convertPullRequestToDraft(input: { pullRequestId: $id }) {
+                    pullRequest {
+                      isDraft
+                    }
+                  }
+                }
+              `,
+              { id: pr.node_id }
+            );
+          }
+
+          async function reopenPr() {
+            try {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: prNumber,
+                state: 'open',
+              });
+            } catch (error) {
+              core.warning('reopenPr failed: ' + error.message);
+            }
+          }
+
+          async function markReadyForReview() {
+            await safeGraphql(
+              'markReadyForReview',
+              `
+                mutation MarkReady($id: ID!) {
+                  markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+                    pullRequest {
+                      isDraft
+                    }
+                  }
+                }
+              `,
+              { id: pr.node_id }
+            );
+          }
+
+          const hasDescription =
+            typeof pr.body === 'string' && pr.body.trim().length > 0;
+
+          if (hasDescription) {
+            if (pr.state === 'closed' && mode === 'strict') {
+              await reopenPr();
+              await addComment('### PR Reopened\n\nDescription added. This PR has been reopened.');
+            } else if (pr.draft && mode === 'draft') {
+              await markReadyForReview();
+              await addComment('### PR Ready for Review\n\nDescription added. This PR has been marked as ready for review.');
+            }
+            return;
+          }
+
+          let message = '### PR Description Required\n\n';
+          message += 'This pull request is missing a description.\n\n';
+          message += '**Why this matters:**\n';
+          message += 'A good description helps reviewers understand your changes, speeds up the review process, and serves as documentation for future reference.\n\n';
+
+          if (mode === 'strict') {
+            message += '**Action taken:** This PR has been closed. Add a description and it will be reopened.';
+          } else if (mode === 'draft') {
+            message += '**Action taken:** This PR has been converted to draft if the token has sufficient permissions. Add a description and it will be marked as ready for review.';
+          } else {
+            message += 'Please update this PR with a meaningful description.';
+          }
+
+          await addComment(message);
+
+          if (mode === 'strict') {
+            await closePr();
+            return;
+          }
+
+          if (mode === 'draft') {
+            if (!pr.draft) {
+              await convertToDraft();
+            }
+            return;
+          }
+
+    - name: Check linked issue
+      if: inputs.check == 'linked-issue' || inputs.check == 'both'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.token != '' && inputs.token || github.token }}
+        script: |
+          const pr = context.payload.pull_request;
+          if (!pr) {
+            core.setFailed('This action must be run on a pull_request event.');
+            return;
+          }
+
+          const mode = ('${{ inputs.mode }}' || 'comment').trim().toLowerCase();
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const prNumber = pr.number;
+
+          async function addComment(body) {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+          }
+
+          async function closePr() {
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: prNumber,
+              state: 'closed',
+            });
+          }
+
+          async function safeGraphql(actionName, query, variables) {
+            try {
+              await github.graphql(query, variables);
+            } catch (error) {
+              core.warning(actionName + ' failed: ' + error.message);
+            }
+          }
+
+          async function convertToDraft() {
+            await safeGraphql(
+              'convertToDraft',
+              `
+                mutation ConvertToDraft($id: ID!) {
+                  convertPullRequestToDraft(input: { pullRequestId: $id }) {
+                    pullRequest {
+                      isDraft
+                    }
+                  }
+                }
+              `,
+              { id: pr.node_id }
+            );
+          }
+
+          async function reopenPr() {
+            try {
+              await github.rest.pulls.update({
+                owner,
+                repo,
+                pull_number: prNumber,
+                state: 'open',
+              });
+            } catch (error) {
+              core.warning('reopenPr failed: ' + error.message);
+            }
+          }
+
+          async function markReadyForReview() {
+            await safeGraphql(
+              'markReadyForReview',
+              `
+                mutation MarkReady($id: ID!) {
+                  markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+                    pullRequest {
+                      isDraft
+                    }
+                  }
+                }
+              `,
+              { id: pr.node_id }
+            );
+          }
+
+          const prData = await github.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+
+          const body = prData.data.body || '';
+
+          const result = await github.graphql(
+            `
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 10) {
+                      nodes {
+                        number
+                        state
+                      }
+                    }
+                  }
+                }
+              }
+            `,
+            {
+              owner,
+              repo,
+              number: prNumber,
+            }
+          );
+
+          const closingIssues = result.repository.pullRequest.closingIssuesReferences.nodes;
+
+          const linkedIssueStatuses = {};
+          for (const issue of closingIssues) {
+            linkedIssueStatuses[issue.number] = issue.state;
+          }
+
+          const openLinkedIssues = closingIssues
+            .filter(i => i.state === 'OPEN')
+            .map(i => i.number);
+
+          const closedLinkedIssues = closingIssues
+            .filter(i => i.state === 'CLOSED')
+            .map(i => i.number);
+
+          const mentionPattern = /#(\d+)/g;
+          const mentionedNumbers = new Set();
+          let match;
+          while ((match = mentionPattern.exec(body)) !== null) {
+            mentionedNumbers.add(parseInt(match[1], 10));
+          }
+
+          const linkedNumbers = new Set(closingIssues.map(i => i.number));
+          const unlinkedMentions = [...mentionedNumbers].filter(n => !linkedNumbers.has(n));
+
+          if (openLinkedIssues.length > 0) {
+            if (pr.state === 'closed' && mode === 'strict') {
+              await reopenPr();
+              await addComment('### PR Reopened\n\nLinked issue found. This PR has been reopened.');
+            } else if (pr.draft && mode === 'draft') {
+              await markReadyForReview();
+              await addComment('### PR Ready for Review\n\nLinked issue found. This PR has been marked as ready for review.');
+            }
+            return;
+          }
+
+          let message = '### Linked Issue Required\n\n';
+          message += 'This pull request does not have a properly linked open issue.\n\n';
+
+          if (closedLinkedIssues.length > 0 || unlinkedMentions.length > 0) {
+            message += '**Found:**\n';
+            if (closedLinkedIssues.length > 0) {
+              message += '- Linked but closed: ' + closedLinkedIssues.map(n => '#' + n).join(', ') + '\n';
+            }
+            if (unlinkedMentions.length > 0) {
+              message += '- Mentioned but not linked: ' + unlinkedMentions.map(n => '#' + n).join(', ') + '\n';
+            }
+            message += '\n';
+          }
+
+          message += '**Why this matters:**\n';
+          message += 'Linking PRs to issues helps track progress, provides context for reviewers, and closes issues when the PR is merged.\n\n';
+          message += '**How to link an issue:**\n';
+          message += 'https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue\n\n';
+
+          if (mode === 'strict') {
+            message += '**Action taken:** This PR has been closed. Link an open issue and it will be reopened.';
+          } else if (mode === 'draft') {
+            message += '**Action taken:** This PR has been converted to draft if the token has sufficient permissions. Link an open issue and it will be marked as ready for review.';
+          } else {
+            message += 'Please update this PR to reference an open issue.';
+          }
+
+          await addComment(message);
+
+          if (mode === 'strict') {
+            await closePr();
+            return;
+          }
+
+          if (mode === 'draft') {
+            if (!pr.draft) {
+              await convertToDraft();
+            }
+            return;
+          }
+
+branding:
+  icon: 'check-circle'
+  color: 'purple'
