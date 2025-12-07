@@ -113,25 +113,23 @@ runs:
           if (hasDescription) {
             if (pr.state === 'closed' && mode === 'strict') {
               await reopenPr();
-              await addComment('### PR Reopened\n\nDescription added. This PR has been reopened.');
+              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review**');
             } else if (pr.draft && mode === 'draft') {
               await markReadyForReview();
-              await addComment('### PR Ready for Review\n\nDescription added. This PR has been marked as ready for review.');
+              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review**');
             }
             return;
           }
 
-          let message = '### PR Description Required\n\n';
-          message += 'This pull request is missing a description.\n\n';
-          message += '**Why this matters:**\n';
-          message += 'A good description helps reviewers understand your changes, speeds up the review process, and serves as documentation for future reference.\n\n';
+          let message = '### Please add a PR description 🙂\n\n';
+          message += 'Respect the reviewers — a description helps others understand the changes and review them faster. Keep it short, clear, and to the point. It also serves as documentation for future reference.\n\n';
 
           if (mode === 'strict') {
-            message += '**Action taken:** This PR has been closed. Add a description and it will be reopened.';
+            message += '_This PR has been closed. Add a description and it will be reopened._';
           } else if (mode === 'draft') {
-            message += '**Action taken:** This PR has been converted to draft if the token has sufficient permissions. Add a description and it will be marked as ready for review.';
+            message += '_The PR was moved to Draft until a description is added._';
           } else {
-            message += 'Please update this PR with a meaningful description.';
+            message += '_Please update this PR with a meaningful description._';
           }
 
           await addComment(message);
