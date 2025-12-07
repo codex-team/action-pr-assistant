@@ -113,10 +113,10 @@ runs:
           if (hasDescription) {
             if (pr.state === 'closed' && mode === 'strict') {
               await reopenPr();
-              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review**');
+              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review.**');
             } else if (pr.draft && mode === 'draft') {
               await markReadyForReview();
-              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review**');
+              await addComment('Thanks for adding a description — the PR is now marked as **Ready for Review.**');
             }
             return;
           }
